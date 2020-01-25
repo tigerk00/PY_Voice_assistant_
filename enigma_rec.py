@@ -8,6 +8,13 @@ import webbrowser
 import pyttsx3
 import speech_recognition as sr
 from fuzzywuzzy import fuzz
+from pyspectator.processor import Cpu
+import psutil
+import wikipedia
+import pyowm
+import pyspeedtest
+import tkinter as tk
+from tkinter import messagebox as mb
 
 #Список ссылок , которые понадобятся в процессе выполнения некоторых запросов от пользователя
 url = "www.google.com"
@@ -34,11 +41,14 @@ url13 = "https://www.povarenok.ru/"
 # Настройки  с командами , на которые будет реагировать Enigma и которые доступны пользователю
 # для одной команды возможны несколько вариаций , для удобства пользователя
 opts = {
+    
+    "searchweather": ("погода","какая погода у","какая погода в","погода в"),
+    "searchgoogle": ("поиск" , "найди что такое" , "гугл" , "загугли что такое",'google'),
+    "wiki" : ("найди мне статтю у википедии" , "Сделай запрос у Википедии" , "Википедия" , "википедия"),
     "alias": ('enigma','энигма',"бэта","бэта-энигма","енигма"),
     "tbr": ('скажи', 'расскажи', 'покажи', 'сколько', 'произнеси','открой',"зайди" , "включи"),
     "cmds": {'ctime': ('текущее время', 'сейчас времени', 'который час'),
-             'radio': ('включи музыку', 'воспроизведи радио', 'включи радио'),
-             'brows': ('открой браузер', "гугл", "открой гугл"),
+             'brows': ('открой браузер',  "открой гугл"),
              'anime': ("открой аниме", "включи аниме", "Включи ями аниме", "открой сайт аниме","Включи ямианиме"),
              'lofi': ("включи лоуфай","открой лоу фай","лоу фай музыку"),
              'calend' : ("какое число","покажи дату","открой календарь"),
@@ -63,7 +73,12 @@ opts = {
              "movie" : ("хочу посмотреть фильм ","включи сайт кино","сайт с кино","сайт кино","скучно , хочу посмотерь фильм"),
              "jams" : ("пробки","где сейчас пробки","пробки Киев","На дороге много пробок?","Покажи пробки","Покажи пробки в Киеве"),
              "cook" : ("что бы приготовить","сайт по кулинарии","что бы приготовить на ужин","что бы приготовить на обед","что бы приготовить на завтрак"),
-             'youtub': ('открой ютуб', 'хочу глянуть видео', 'хочу что-то посмотреть', 'зайди в ютуб', "включи ютуб"),
+             'youtub': ('открой ютуб', 'хочу глянуть видео', 'хочу что-то посмотреть', 'зайди в ютуб', "включи ютуб" , "включи youtube"),
+             "mypc" : ("состояние моего ноутбука","проверь состояние моего ноутбука"),
+             "spdtst": ("скорость интернета","тест скорости","спидтест"," тест скорости интернета", "speedtest"),
+             "reminder": ("напомни мне кое-что сделать","напомни","напоминалка","ремайндер","reminder" ),
+             "memory_usage": ("использование памяти","память","память использование","отчет по использовании памяти" , "отчет по памяти")
+             
              }
 
 }
@@ -77,12 +92,50 @@ def speak(what):
     speak_engine.stop()
 
 
-def callback(recognizer, audio):
+def callback(recognizer, audio):        # Функция для того , чтобы можно было узнать погоду в определенном городе
     try:
         voice = recognizer.recognize_google(audio, language="ru-RU").lower()  # Сам распознаватель голоса
         print("[log] Распознано: " + voice)                                   # Вывод в консоль того , что смогла распознать Энигма
-
-        if voice.startswith(opts["alias"]):
+                       
+        if voice.startswith(opts["searchweather"]):
+            
+            w = print("[weather] Распознано: " + voice )
+            
+            cmd = voice
+            for x in opts['searchweather']:
+                cmd = cmd.replace(x, "").strip()
+            
+            
+            owm = pyowm.OWM('Ваш API для работы с pyowm')
+            observation = owm.weather_at_place(cmd)
+            wt = observation.get_weather()
+            temperature = wt.get_temperature("celsius")['temp']
+            wte = wt.get_detailed_status()
+            speak("Время в " + str(cmd) + " в даный момент :" + str(wt.get_reference_time(timeformat='iso')) + "\n" + "Хмарность в " + str(cmd) + " сейчас " + str(wt.get_clouds()) + " процентов.\n" + "Температура равна " + str(int(temperature)) + " градусов по Цельсию. \n" + "Влажность сейчас " + str(wt.get_humidity()) + " процентов.\n" + "Время восхода солнца : " + str(wt.get_sunrise_time('iso')) + ".\n" + "Время заката: " + str(wt.get_sunset_time('iso')) + ".\n" )
+            print("Состояние погоды в целом : " + wte + ".")
+            
+            
+        
+        
+        elif voice.startswith(opts["wiki"]):      # Поиск информации у Википедии
+                    
+            n=print("[wiki] Распознано: " + voice )    
+            cmd = voice
+            for x in opts['wiki']:
+                cmd = cmd.replace(x, "").strip()
+            wikipedia.set_lang("ru")
+            speak(wikipedia.summary(cmd))
+        
+        elif voice.startswith(opts["searchgoogle"]):  #Поиск в Гугле
+            g = print("[google] Распознано: " + voice)
+            command_to_search = voice
+            for x in opts['searchgoogle']:
+                command_to_search = command_to_search.replace(x, "").strip()
+            url = "https://www.google.co.in/search?q=" +(str(command_to_search))+ "&oq="+(str(command_to_search))+"&gs_l=serp.12..0i71l8.0.0.0.6391.0.0.0.0.0.0.0.0..0.0....0...1c..64.serp..0.0.0.UiQhpfaBsuU"
+            webbrowser.open_new(url)
+        
+        
+        elif voice.startswith(opts["alias"]):
             # обращаются к Энигме
             cmd = voice
 
@@ -92,9 +145,17 @@ def callback(recognizer, audio):
             for x in opts['tbr']:
                 cmd = cmd.replace(x, "").strip()
 
-            # распознаем и выполняем команду
+                # распознаем и выполняем команду
             cmd = recognize_cmd(cmd)
             execute_cmd(cmd['cmd'])
+      
+
+        
+        
+        
+                
+            
+            
 
     except sr.UnknownValueError:
         print("[log] Голос не распознан!")
@@ -120,10 +181,6 @@ def execute_cmd(cmd):
         # сказать текущее время
         now = datetime.datetime.now()
         speak("Сейчас " + str(now.hour) + ":" + str(now.minute))
-
-    elif cmd == 'radio':
-        # воспроизвести радио
-        os.system("start C:/Users/111/Dreamy.mp3")
 
     elif cmd == "brows":
         # открыть браузер (Гугл)
@@ -211,8 +268,37 @@ def execute_cmd(cmd):
     elif cmd == "cook":
         # Код для открытия сайта по кулинарии в браузере
         webbrowser.open(url13)
-
-
+    elif cmd == "mypc":
+        print("Информация о памяти на вашем устройстве:\n")
+        print(psutil.virtual_memory())
+        print("Количество логических процессоров: "+ str(psutil.cpu_count()))
+        print("Статистика о вашем ЦПУ: \n")
+        print(psutil.cpu_stats())
+        print("Частота вашего ЦПУ: \n")
+        print(psutil.cpu_freq())
+        print("Использование дисков: \n")
+        print(psutil.disk_usage('/'))
+        print("Общесистемные сокетные соединени: \n")
+        print(psutil.net_connections())
+        cpu = Cpu(monitoring_latency=1)
+        speak("Температура вашего ЦПУ "+ str(cpu.temperature) + " градусов по Цельсию. "" Загруженость вашего ЦПУ: "+  str(int(psutil.cpu_percent()))+ " процентов.""Также я вывела в консоль информация о памяти на вашем устройстве , количестве логических процессоров ,  более точную статистику о вашем ЦПУ , информации  о использовании дисков , сокетных соединений. " " Посмотрите внимательнее , может найдёте что-то странное или подозрительное.")
+    elif cmd == 'spdtst':
+        st = pyspeedtest.SpeedTest()
+        speak("Ваш пинг равен: " + str(int(st.ping())) + " миллисекунд.\n" + "Скорость приёма трафика равна: " + str(int(st.download())) + " мегабит в секунду.\n" + "Скорость отдачи трафика: " + str(int(st.upload())) + " мегабит в секунду." )
+    elif cmd == 'reminder' :
+        root = tk.Tk()
+        root.withdraw()
+        text = str(input("Введите , что именно я должна Вам напомнить: \n"))              
+        local_time = float(input("Введите , через сколько минут мне Вам напомнить: \n"))
+        print("Окей , будет сделано .")
+        local_time = local_time * 60
+        time.sleep(local_time)
+        mb.showinfo("Напоминание", text)
+    elif cmd ==  "memory_usage" :
+        print("Информация о задейственной и свободной памяти: \n" + str(psutil.virtual_memory()))
+        
+        
+        
     else:
         print('Команда не распознана, повторите!')
 
